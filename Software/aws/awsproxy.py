@@ -146,6 +146,16 @@ AWS_RES_WB_SCREEN_INFO = 7
 AWS_EVENT_CLOSE_WINDOW = 8
 AWS_EVENT_FLIP_DONE = 9
 
+AWS_EVENT_MOUSE_MOVE = 20
+AWS_EVENT_MOUSE_BUTTONS = 21
+AWS_EVENT_MOUSE_LEFT_DOWN = 22
+AWS_EVENT_MOUSE_LEFT_UP = 23
+AWS_EVENT_MOUSE_RIGHT_DOWN = 24
+AWS_EVENT_MOUSE_RIGHT_UP = 25
+AWS_EVENT_MOUSE_MIDDLE_DOWN = 26
+AWS_EVENT_MOUSE_MIDDLE_UP = 27
+AWS_EVENT_RAWKEY = 28
+
 AWS_CLIENT_REQ_OPEN_WINDOW = 1
 AWS_CLIENT_RES_OPEN_WINDOW_FAIL = 2
 AWS_CLIENT_RES_OPEN_WINDOW_SUCCESS = 3
@@ -156,9 +166,40 @@ AWS_CLIENT_RES_WB_SCREEN_INFO = 7
 AWS_CLIENT_EVENT_CLOSE_WINDOW = 8
 AWS_CLIENT_EVENT_FLIP_DONE = 9
 
+AWS_CLIENT_EVENT_MOUSE_MOVE = 20
+AWS_CLIENT_EVENT_MOUSE_BUTTONS = 21
+AWS_CLIENT_EVENT_MOUSE_LEFT_DOWN = 22
+AWS_CLIENT_EVENT_MOUSE_LEFT_UP = 23
+AWS_CLIENT_EVENT_MOUSE_RIGHT_DOWN = 24
+AWS_CLIENT_EVENT_MOUSE_RIGHT_UP = 25
+AWS_CLIENT_EVENT_MOUSE_MIDDLE_DOWN = 26
+AWS_CLIENT_EVENT_MOUSE_MIDDLE_UP = 27
+AWS_CLIENT_EVENT_RAWKEY = 28
+
 def process_drv_data(msg):
     cmd = msg[0]
-    if cmd == AWS_RES_OPEN_WINDOW_FAIL:
+    if cmd == AWS_EVENT_MOUSE_MOVE:
+        wid = msg[1]
+        if wid in windows:
+            w = windows[wid]
+            c = w.client
+            mouseX, mouseY = struct.unpack('>hh', msg[2:6])
+            c.send(struct.pack('=BHhh', AWS_CLIENT_EVENT_MOUSE_MOVE, w.cwid, mouseX, mouseY))
+    elif cmd == AWS_EVENT_MOUSE_BUTTONS:
+        wid = msg[1]
+        if wid in windows:
+            w = windows[wid]
+            c = w.client
+            mouseX, mouseY, action = struct.unpack('>hhB', msg[2:7])
+            c.send(struct.pack('=BHBhh', AWS_CLIENT_EVENT_MOUSE_BUTTONS, w.cwid, action, mouseX, mouseY))
+    elif cmd == AWS_EVENT_RAWKEY:
+        wid = msg[1]
+        if wid in windows:
+            w = windows[wid]
+            c = w.client
+            code, qualifiers = struct.unpack('>HH', msg[2:6])
+            c.send(struct.pack('=BHHH', AWS_CLIENT_EVENT_RAWKEY, w.cwid, code, qualifiers))
+    elif cmd == AWS_RES_OPEN_WINDOW_FAIL:
         wid = msg[1]
         if wid in windows:
             w = windows[wid]

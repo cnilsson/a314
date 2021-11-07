@@ -35,6 +35,16 @@
 #define AWS_EVENT_CLOSE_WINDOW 8
 #define AWS_EVENT_FLIP_DONE 9
 
+#define AWS_EVENT_MOUSE_MOVE 20
+#define AWS_EVENT_MOUSE_BUTTONS 21
+#define AWS_EVENT_MOUSE_LEFT_DOWN 22
+#define AWS_EVENT_MOUSE_LEFT_UP 23
+#define AWS_EVENT_MOUSE_RIGHT_DOWN 24
+#define AWS_EVENT_MOUSE_RIGHT_UP 25
+#define AWS_EVENT_MOUSE_MIDDLE_DOWN 26
+#define AWS_EVENT_MOUSE_MIDDLE_UP 27
+#define AWS_EVENT_RAWKEY 28
+
 struct WindowInfo
 {
 	struct WindowInfo *next;
@@ -192,7 +202,7 @@ static void handle_req_open_window()
 		width, height,
 		0, 1,
 		0,
-		WINDOWCLOSE | ACTIVATE | WINDOWDEPTH | WINDOWDRAG | SIMPLE_REFRESH,
+		WINDOWCLOSE | ACTIVATE | WINDOWDEPTH | WINDOWDRAG | SIMPLE_REFRESH | RMBTRAP | REPORTMOUSE,
 		NULL, NULL,
 		wi->title,
 		NULL, NULL,
@@ -205,7 +215,7 @@ static void handle_req_open_window()
 	if (w)
 	{
 		w->UserPort = mp;
-		ModifyIDCMP(w, CLOSEWINDOW | REFRESHWINDOW);
+		ModifyIDCMP(w, CLOSEWINDOW | REFRESHWINDOW | MOUSEBUTTONS | MOUSEMOVE | RAWKEY );
 
 		UWORD bw = w->Width - (w->BorderLeft + w->BorderRight);
 		UWORD bh = w->Height - (w->BorderTop + w->BorderBottom);
@@ -342,13 +352,45 @@ static void handle_intui_message(struct IntuiMessage *im)
 
 	switch (class)
 	{
+		case MOUSEBUTTONS:
+			wait_a314_write_complete();
+			awbuf[0] = AWS_EVENT_MOUSE_BUTTONS;
+			awbuf[1] = wi->wid;
+			*(WORD *)&awbuf[2] = im->MouseX - wi->window->BorderLeft;
+			*(WORD *)&awbuf[4] = im->MouseY - wi->window->BorderTop;
+			switch (im->Code)
+			{
+				case SELECTDOWN: awbuf[6] = AWS_EVENT_MOUSE_LEFT_DOWN;   break;
+				case SELECTUP:   awbuf[6] = AWS_EVENT_MOUSE_LEFT_UP;     break;
+				case MENUDOWN:   awbuf[6] = AWS_EVENT_MOUSE_RIGHT_DOWN;  break;
+				case MENUUP:     awbuf[6] = AWS_EVENT_MOUSE_RIGHT_UP;    break;
+// 				case MIDDLEDOWN: awbuf[6] = AWS_EVENT_MOUSE_MIDDLE_DOWN; break;
+// 				case MIDDLEUP:   awbuf[6] = AWS_EVENT_MOUSE_MIDDLE_UP;   break;
+			}
+			start_a314_write(7);
+			break;
+		case MOUSEMOVE:
+			wait_a314_write_complete();
+			awbuf[0] = AWS_EVENT_MOUSE_MOVE;
+			awbuf[1] = wi->wid;
+			*(WORD *)&awbuf[2] = im->MouseX - wi->window->BorderLeft;
+			*(WORD *)&awbuf[4] = im->MouseY - wi->window->BorderTop;
+			start_a314_write(6);
+			break;
+		case RAWKEY:
+			wait_a314_write_complete();
+			awbuf[0] = AWS_EVENT_RAWKEY;
+			awbuf[1] = wi->wid;
+			*(UWORD *)&awbuf[2] = im->Code;
+			*(UWORD *)&awbuf[4] = im->Qualifier;
+			start_a314_write(7);
+			break;
 		case CLOSEWINDOW:
 			wait_a314_write_complete();
 			awbuf[0] = AWS_EVENT_CLOSE_WINDOW;
 			awbuf[1] = wi->wid;
 			start_a314_write(2);
 			break;
-
 		case REFRESHWINDOW:
 			BeginRefresh(wi->window);
 			redraw_window(wi);

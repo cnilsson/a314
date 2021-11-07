@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2021 Niklas Ekström
+# Copyright (c) 2021 Niklas Ekström, Christian Nilsson
 
 import logging
 import os
@@ -28,6 +28,17 @@ AWS_CLIENT_REQ_WB_SCREEN_INFO = 6
 AWS_CLIENT_RES_WB_SCREEN_INFO = 7
 AWS_CLIENT_EVENT_CLOSE_WINDOW = 8
 AWS_CLIENT_EVENT_FLIP_DONE = 9
+
+AWS_CLIENT_EVENT_MOUSE_MOVE = 20
+AWS_CLIENT_EVENT_MOUSE_BUTTONS = 21
+AWS_CLIENT_EVENT_MOUSE_LEFT_DOWN = 22
+AWS_CLIENT_EVENT_MOUSE_LEFT_UP = 23
+AWS_CLIENT_EVENT_MOUSE_RIGHT_DOWN = 24
+AWS_CLIENT_EVENT_MOUSE_RIGHT_UP = 25
+AWS_CLIENT_EVENT_MOUSE_MIDDLE_DOWN = 26
+AWS_CLIENT_EVENT_MOUSE_MIDDLE_UP = 27
+AWS_CLIENT_EVENT_RAWKEY = 28
+
 
 class Window(object):
     def __init__(self, wid):
@@ -69,7 +80,10 @@ class Connection(threading.Thread):
 
     def process_msg(self, msg):
         cmd = msg[0]
-        if cmd in [AWS_CLIENT_RES_OPEN_WINDOW_FAIL, AWS_CLIENT_RES_OPEN_WINDOW_SUCCESS, AWS_CLIENT_RES_WB_SCREEN_INFO]:
+        if cmd in [AWS_CLIENT_EVENT_MOUSE_MOVE, AWS_CLIENT_EVENT_MOUSE_BUTTONS, AWS_CLIENT_EVENT_RAWKEY]:
+            if hasattr(self.callbacks, 'event_user_input'):
+                self.callbacks.event_user_input(self, msg)
+        elif cmd in [AWS_CLIENT_RES_OPEN_WINDOW_FAIL, AWS_CLIENT_RES_OPEN_WINDOW_SUCCESS, AWS_CLIENT_RES_WB_SCREEN_INFO]:
             self.sync_queue.put(msg)
         elif cmd == AWS_CLIENT_EVENT_CLOSE_WINDOW:
             wid = struct.unpack('=H', msg[1:3])[0]
