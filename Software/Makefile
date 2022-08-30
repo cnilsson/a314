@@ -3,7 +3,7 @@
 CPP=g++
 VC=vc
 
-all: bin_dir bin/a314d bin/a314.device bin/a314fs bin/pi bin/piaudio bin/remotewb bin/remote-mouse bin/videoplayer bin/diag bin/a314eth.device bin/a314disk.device
+all: bin_dir bin/a314d bin/a314.device bin/a314fs bin/pi bin/piaudio bin/remotewb bin/remote-mouse bin/videoplayer bin/xanacs bin/diag bin/a314eth.device bin/a314disk.device
 
 bin_dir:
 	mkdir -p bin
@@ -36,6 +36,9 @@ bin/remote-mouse: a314device/a314.h remote-mouse/remote-mouse.c
 bin/videoplayer: a314device/a314.h a314device/proto_a314.h videoplayer/videoplayer.c videoplayer/vblank_server.asm
 	${VC} videoplayer/videoplayer.c videoplayer/vblank_server.asm -lamiga -o bin/videoplayer
 
+bin/xanacs: a314device/a314.h a314device/proto_a314.h xanacs/xanacs.c xanacs/vblank_server.asm
+	${VC} xanacs/xanacs.c xanacs/vblank_server.asm -lamiga -o bin/xanacs
+
 bin/diag: diag/diag.c
 	${VC} diag/diag.c -o bin/diag
 
@@ -55,6 +58,7 @@ install: all
 	cp remotewb/remotewb.py /opt/a314
 	cp remote-mouse/remote-mouse.py /opt/a314
 	cp videoplayer/videoplayer.py /opt/a314
+	cp xanacs/xanacs.py /opt/a314
 	cp ethernet/ethernet.py /opt/a314
 	cp disk/disk.py /opt/a314
 	mkdir -p /etc/opt/a314
