@@ -1,0 +1,33 @@
+sudo apt install xorg xserver-xorg-video-dummy
+sudo apt install python3-xlib
+sudo apt install libopenjp2-7
+
+sudo pip3 install --system pillow
+
+# glxgears
+sudo apt install mesa-utils
+
+echo > /usr/share/X11/xorg.conf.d/xorg.conf << __EOF
+Section "Device"
+    Identifier  "Configured Video Device"
+    Driver      "dummy"
+EndSection
+
+Section "Monitor"
+    Identifier  "Configured Monitor"
+    HorizSync 31.5-48.5
+    VertRefresh 50-70
+EndSection
+
+Section "Screen"
+    Identifier  "Default Screen"
+    Monitor     "Configured Monitor"
+    Device      "Configured Video Device"
+    DefaultDepth 24
+    SubSection "Display"
+    Depth 24
+    Modes "320x256"
+    EndSubSection
+EndSection
+__EOF
+

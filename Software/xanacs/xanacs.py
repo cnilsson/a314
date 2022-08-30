@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2018 Niklas Ekström
+# Copyright (c) 2022 Christian Nilsson
 
 import glob
 import os
@@ -10,6 +10,8 @@ import struct
 import socket
 import sys
 import time
+
+from framegrabber import FrameGrabber
 
 MSG_REGISTER_REQ        = 1
 MSG_REGISTER_RES        = 2
@@ -82,14 +84,16 @@ class VideoPlayerSession(object):
         self.reset_after = None
         self.received_bpl_ptrs = False
 
+        self.grabber = FrameGrabber()
+
     def start(self):
-        self.fns = sorted(glob.glob('/home/pi/player/her_dither3/*.ami'))
         self.fc = 0
         self.read_next_frame()
 
     def close(self):
         del sessions[self.stream_id]
 
+    # REMOVE
     def massage_pal(self):
         new_pal = b''
         for i in range(16):
@@ -98,16 +102,7 @@ class VideoPlayerSession(object):
         self.pal = new_pal
 
     def read_next_frame(self):
-        if self.fc < len(self.fns):
-            fn = self.fns[self.fc]
-            with open(fn, 'rb') as f:
-                self.pal = f.read(64)
-                self.bpl_data = f.read(40960)
-            self.massage_pal()
-            self.fc += 1
-        else:
-            self.bpl_data = None
-            self.pal = None
+        self.pal, self.bpl_data = self.grabber.get_planar_frame()
 
     def process_msg_data(self, data):
         if not self.received_bpl_ptrs:
