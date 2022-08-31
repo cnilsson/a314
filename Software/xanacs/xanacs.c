@@ -154,7 +154,7 @@ void handle_a314_read_completed()
 
 		UWORD *pal = (UWORD *)(&arbuf[2]);
 		UWORD *ct = (UWORD *)(screen->ViewPort.ColorMap->ColorTable);
-		for (int i = 0; i < 16; i++)
+		for (int i = 0; i < 32; i++)
 			ct[i] = pal[i];
 
 		UBYTE *bpl_ptr;
@@ -167,6 +167,7 @@ void handle_a314_read_completed()
 		screen->BitMap.Planes[1] = &bpl_ptr[10240*1];
 		screen->BitMap.Planes[2] = &bpl_ptr[10240*2];
 		screen->BitMap.Planes[3] = &bpl_ptr[10240*3];
+		screen->BitMap.Planes[4] = &bpl_ptr[10240*4];
 
 		MakeScreen(screen);
 		RethinkDisplay();
@@ -208,7 +209,7 @@ void handle_vblank_signal()
 		start_a314_write(1);
 
 		waiting_for_frame_response = TRUE;
-		req_next_frame_at += 4;
+		req_next_frame_at += 2;
 	}
 	vblank_counter += 1;
 }
@@ -240,8 +241,8 @@ int main()
 		goto fail_out2;
 	}
 
-	bpl_ptr1 = AllocMem(10240*4, MEMF_A314 | MEMF_CHIP);
-	bpl_ptr2 = AllocMem(10240*4, MEMF_A314 | MEMF_CHIP);
+	bpl_ptr1 = AllocMem(10240*5, MEMF_A314 | MEMF_CHIP);
+	bpl_ptr2 = AllocMem(10240*5, MEMF_A314 | MEMF_CHIP);
 	if (bpl_ptr1 == NULL || bpl_ptr2 == NULL)
 	{
 		printf("Unable to allocate A314 chip memory\n");
@@ -256,7 +257,7 @@ int main()
 
 	struct BitMap bmp =
 	{
-		40, 256, 0, 4, 0,
+		40, 256, 0, 5, 0,
 		{NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL}
 	};
 
@@ -264,11 +265,12 @@ int main()
 	bmp.Planes[1] = &bpl_ptr1[10240*1];
 	bmp.Planes[2] = &bpl_ptr1[10240*2];
 	bmp.Planes[3] = &bpl_ptr1[10240*3];
+	bmp.Planes[4] = &bpl_ptr1[10240*4];
 
 	struct NewScreen new_screen =
 	{
 		0, 0,
-		320, 256, 4,
+		320, 256, 5,
 		0, 1,
 		0, CUSTOMSCREEN | CUSTOMBITMAP | SCREENQUIET,
 		NULL, "Videoplayer", NULL, &bmp
@@ -345,9 +347,9 @@ int main()
 
 fail_out3:
 	if (bpl_ptr2)
-		FreeMem(bpl_ptr2, 10240*4);
+		FreeMem(bpl_ptr2, 10240*5);
 	if (bpl_ptr1)
-		FreeMem(bpl_ptr1, 10240*4);
+		FreeMem(bpl_ptr1, 10240*5);
 
 fail_out2:
 	CloseDevice((struct IORequest *)cmsg);

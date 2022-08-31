@@ -93,14 +93,6 @@ class VideoPlayerSession(object):
     def close(self):
         del sessions[self.stream_id]
 
-    # REMOVE
-    def massage_pal(self):
-        new_pal = b''
-        for i in range(16):
-            creg, col = struct.unpack('>HH', self.pal[4*i:4*(i+1)])
-            new_pal += struct.pack('>H', col)
-        self.pal = new_pal
-
     def read_next_frame(self):
         self.pal, self.bpl_data = self.grabber.get_planar_frame()
 
