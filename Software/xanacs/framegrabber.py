@@ -8,7 +8,7 @@ from PIL import Image, ImageOps
 
 from ctypes import c_char, c_char_p, CDLL
 
-lib_path = './libcc2p.so'
+lib_path = '/opt/a314/libcc2p.so'
 try:
     cc2p_lib = CDLL(lib_path)
 except Exception as e:

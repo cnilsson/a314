@@ -25,3 +25,7 @@ ${BIN}/spi-a314.dtbo: a314d/spi-a314-overlay.dts
 
 ${BIN}/start_gpclk: a314d/start_gpclk.c
 	${CC} a314d/start_gpclk.c -I/opt/vc/include -L/opt/vc/lib -lbcm_host -o ${BIN}/start_gpclk
+
+${BIN}/libcc2p.so: libcc2p/cc2p.c
+	${CC} -c -O3 -fpic -o libcc2p/cc2p.o libcc2p/cc2p.c
+	${CC} -shared -o ${BIN}/libcc2p.so libcc2p/cc2p.o
