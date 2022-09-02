@@ -94,7 +94,8 @@ class VideoPlayerSession(object):
         del sessions[self.stream_id]
 
     def read_next_frame(self):
-        self.pal, self.bpl_data = self.grabber.get_planar_frame()
+        self.pal, self.bpl_data = self.grabber.get_planar_frame(self.fc)
+        self.fc = self.fc + 1
 
     def process_msg_data(self, data):
         if not self.received_bpl_ptrs:
