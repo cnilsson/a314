@@ -3,8 +3,8 @@
 
 # Copyright (c) 2022 Christian Nilsson
 
-from Xlib import display, X
 from PIL import Image, ImageOps
+from pyvirtualdisplay import smartdisplay
 
 from ctypes import c_char, c_char_p, CDLL
 
@@ -19,8 +19,9 @@ class FrameGrabber(object):
         self.w = 320
         self.h = 256
 
-        self.d = display.Display(':0')
-        self.root = self.d.screen().root
+        self.disp = smartdisplay.SmartDisplay(size=(320, 256))
+        self.disp.start()
+        print(f'Display: {self.disp.new_display_var}')
 
     @staticmethod
     def c2p(raw, width, height, depth):
@@ -35,8 +36,7 @@ class FrameGrabber(object):
         return c_arr_out
 
     def get_planar_frame(self):
-        image_data = self.root.get_image(0, 0, self.w, self.h, X.ZPixmap, 0xffffffff)
-        original_image = Image.frombytes("RGB", (self.w, self.h), image_data.data, "raw", "BGRX")
+        original_image = self.disp.grab(autocrop=False)
 
         # Keep top 4 bits of colour values. This is not really needed, but it seems
         # to lighten the CPU load enough for 25 fps playback on an RPi Zero 2
