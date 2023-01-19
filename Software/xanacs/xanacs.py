@@ -10,6 +10,8 @@ import struct
 import socket
 import sys
 import time
+import subprocess
+import shlex
 
 from framegrabber import FrameGrabber
 
@@ -83,6 +85,8 @@ class VideoPlayerSession(object):
 
         self.reset_after = None
         self.received_bpl_ptrs = False
+        self.received_cmd = False
+        self.cmdbuffer = bytearray()
 
         self.grabber = FrameGrabber()
 
@@ -101,6 +105,20 @@ class VideoPlayerSession(object):
         if not self.received_bpl_ptrs:
             self.addresses = struct.unpack('>II', data)
             self.received_bpl_ptrs = True
+        elif not self.received_cmd:
+            if data[0] > 0:
+                print('Received {:d} sized packet with {:d} bytes of command data'.format(len(data), data[0]))
+                self.cmdbuffer.extend(data[1:data[0]+1])
+            else:
+                print('All data received, total: {:d} bytes'.format(len(self.cmdbuffer)))
+                with open('/tmp/314tmp', 'wb') as f:
+                    f.write(self.cmdbuffer)
+                os.chmod('/tmp/314tmp', 0o700)
+                self.received_cmd = True
+                display_num = self.grabber.get_display_num()
+                shellcmd = f'/tmp/314tmp' + f' DISPLAY={display_num}'
+                print(f'shellcmd: {shellcmd}')
+                subprocess.Popen(shlex.split(shellcmd))
         else:
             self.next_bpl = data[0]
             if self.bpl_data is None:
@@ -184,7 +202,7 @@ rbuf = b''
 
 if not done:
     print('Video player server is running')
-    
+
 while not done:
     sel_fds = [drv]
     if idx == -1:

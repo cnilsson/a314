@@ -13,6 +13,7 @@
 #include <libraries/dos.h>
 #include <intuition/intuition.h>
 #include <graphics/gfxbase.h>
+#include <workbench/startup.h>
 
 #include <hardware/intbits.h>
 
@@ -152,22 +153,24 @@ void handle_a314_read_completed()
 			return;
 		}
 
-		UWORD *pal = (UWORD *)(&arbuf[2]);
-		UWORD *ct = (UWORD *)(screen->ViewPort.ColorMap->ColorTable);
-		for (int i = 0; i < 32; i++)
-			ct[i] = pal[i];
-
 		UBYTE *bpl_ptr;
 		if (curr_bpl == 0)
 			bpl_ptr = bpl_ptr1;
 		else
 			bpl_ptr = bpl_ptr2;
 
+		// Set pointers to bitplanes
 		screen->BitMap.Planes[0] = &bpl_ptr[10240*0];
 		screen->BitMap.Planes[1] = &bpl_ptr[10240*1];
 		screen->BitMap.Planes[2] = &bpl_ptr[10240*2];
 		screen->BitMap.Planes[3] = &bpl_ptr[10240*3];
 		screen->BitMap.Planes[4] = &bpl_ptr[10240*4];
+
+		// Copy the palette
+		UWORD *pal = (UWORD *)(&arbuf[2]);
+		UWORD *ct = (UWORD *)(screen->ViewPort.ColorMap->ColorTable);
+		for (int i = 0; i < 32; i++)
+			ct[i] = pal[i];
 
 		MakeScreen(screen);
 		RethinkDisplay();
@@ -214,8 +217,56 @@ void handle_vblank_signal()
 	vblank_counter += 1;
 }
 
-int main()
+int main(int argc, char **argv)
 {
+	BPTR fh;
+	int c;
+
+    struct WBStartup *argmsg;
+    struct WBArg *wb_arg;
+    BPTR olddir;
+
+    if (argc == 0)
+    {
+		/* In AmigaOS, argv is a pointer to the WBStartup message
+		** when argc is zero.  (run under the Workbench.)
+		*/
+		argmsg = (struct WBStartup *)argv ;
+		wb_arg = argmsg->sm_ArgList;         /* head of the arg list */
+		wb_arg++;
+
+		if (0 != wb_arg->wa_Lock)
+		{
+			/* locks supported, change to the proper directory */
+			olddir = CurrentDir(wb_arg->wa_Lock) ;
+
+			/* process the file.
+			** If you have done the CurrentDir() above, then you can
+			** access the file by its name.  Otherwise, you have to
+			** examine the lock to get a complete path to the file.
+			*/
+			fh = Open(wb_arg->wa_Name, MODE_OLDFILE);
+			if (!fh)
+			{
+				goto fail_out0;
+			}
+			/* change back to the original directory when done.
+			** be sure to change back before you exit.
+			*/
+			CurrentDir(olddir);
+		}
+		else
+		{
+			/* something that does not support locks */
+			goto fail_out0;
+		}
+    }
+    else
+    {
+		printf("Use from Workbench as default tool instead\n");
+		goto fail_out0;
+    }
+
 	IntuitionBase = (struct IntuitionBase *)OpenLibrary("intuition.library", 0);
 	GfxBase = (struct GfxBase *)OpenLibrary("graphics.library", 0);
 
@@ -241,6 +292,7 @@ int main()
 		goto fail_out2;
 	}
 
+	// Allocate memory for dual screen buffers
 	bpl_ptr1 = AllocMem(10240*5, MEMF_A314 | MEMF_CHIP);
 	bpl_ptr2 = AllocMem(10240*5, MEMF_A314 | MEMF_CHIP);
 	if (bpl_ptr1 == NULL || bpl_ptr2 == NULL)
@@ -250,10 +302,25 @@ int main()
 		goto fail_out3;
 	}
 
+	// Pack and send screen buffer addresses
 	*((ULONG *)&awbuf[0]) = TranslateAddressA314(bpl_ptr1);
 	*((ULONG *)&awbuf[4]) = TranslateAddressA314(bpl_ptr2);
-
 	sync_a314_write(8);
+
+	// Send the script/executeable as opened at the start of main(), 223 bytes at a time.
+	// First byte is the number of executeable data bytes in the current packet.
+	// Transfer ends with the a packet only containing a single 0.
+	while (c = Read(fh, awbuf+1, 223))
+	{
+		printf("Read %d bytes\n", c);
+		awbuf[0] = c & 0xff;
+		sync_a314_write(c+1);
+	}
+	Close(fh);
+	printf("Done reading file\n");
+	awbuf[0] = 0;
+	sync_a314_write(1);
+	printf("Sent final 0-block\n");
 
 	struct BitMap bmp =
 	{
@@ -359,6 +426,7 @@ fail_out1:
 	DeleteExtIO((struct IORequest *)cmsg);
 	DeletePort(mp);
 	CloseLibrary((struct Library *)GfxBase);
-	CloseLibrary((struct Library *)IntuitionBase);;
+	CloseLibrary((struct Library *)IntuitionBase);
+fail_out0:
 	return 0;
 }

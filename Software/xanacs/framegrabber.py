@@ -48,30 +48,36 @@ class FrameGrabber(object):
         while frame_num != None:
             if DEBUG: print(f'Graboid {g} start #{frame_num}')
             image_data = root.get_image(0, 0, self._w, self._h, X.ZPixmap, 0xffffffff)
-            original_image = Image.frombuffer("RGB", (self._w, self._h), image_data.data, "raw", "BGRX")
-
             if use_libimagequant == True:
                 # This looks sooo much better, but is equally slower...
-                quantized_image = imagequant.quantize_pil_image(original_image, dithering_level=1.0, max_colors=32)
+                quantized_image, quantized_palette = imagequant.quantize_raw_rgba_bytes(image_data.data, self._w, self._h, dithering_level=1.0, max_colors=32)
+
+                amiga_palette = bytearray(64)
+                for c in range(0, 32):
+                    amiga_palette[2*c] = quantized_palette[4*c+2] >> 4
+                    amiga_palette[2*c+1] = (quantized_palette[4*c+1] & 0xf0) | (quantized_palette[4*c] >> 4)
             else:
+                original_image = Image.frombuffer("RGB", (self._w, self._h), image_data.data, "raw", "BGRX")
+
                 # Keep top 4 bits of colour values. This is not really needed, but it seems
                 # to lighten the CPU load enough for 25 fps playback on an RPi Zero 2
                 posterized_image = ImageOps.posterize(image=original_image, bits=4)
 
                 # Quantize image, reducing to 32 colours
-                quantized_image = posterized_image.quantize(colors=32, method=Image.MEDIANCUT, dither=Image.FLOYDSTEINBERG)
+                temp_image = posterized_image.quantize(colors=32, method=Image.MEDIANCUT, dither=Image.FLOYDSTEINBERG)
+                quantized_palette = temp_image.getpalette('RGB')
+                quantized_image = temp_image.tobytes()
 
-            quantized_palette = quantized_image.getpalette('RGB')
+                amiga_palette = bytearray(64)
+                for c in range(0, 32):
+                    amiga_palette[2*c] = quantized_palette[3*c] >> 4
+                    amiga_palette[2*c+1] = (quantized_palette[3*c+1] & 0xf0) | (quantized_palette[3*c+2] >> 4)
 
-            amiga_palette = bytearray(64)
-            for c in range(0, 32):
-                amiga_palette[2*c] = quantized_palette[3*c] >> 4
-                amiga_palette[2*c+1] = (quantized_palette[3*c+1] & 0xf0) | (quantized_palette[3*c+2] >> 4)
             if DEBUG: print(f'Graboid {g} sending #{frame_num}')
 
             # Perform chunky-to-planar conversion and store in shared mem area
             shm_output.buf[:64] = amiga_palette
-            shm_output.buf[64:] = bytes(self.c2p(quantized_image.tobytes(), self._w, self._h, 5))
+            shm_output.buf[64:] = bytes(self.c2p(quantized_image, self._w, self._h, 5))
             conn.send(frame_num)
 
             if DEBUG: print(f'Graboid {g} sent #{frame_num}')
