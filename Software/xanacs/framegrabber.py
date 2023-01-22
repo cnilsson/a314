@@ -3,6 +3,7 @@
 
 # Copyright (c) 2022 Christian Nilsson
 
+import os
 from multiprocessing import Process, Pipe, shared_memory
 
 from PIL import Image, ImageOps
@@ -17,6 +18,13 @@ try:
     cc2p_lib = CDLL(lib_path)
 except Exception as e:
     print('Failed to load C chunky 2 planar: {}'.format(e))
+
+# pyautogui assumes that there is an active display when importing
+# the module so setup a tiny one to keep it happy.
+dummydisp = virtdisplay.Display(size=(1, 1))
+dummydisp.start()
+os.environ["DISPLAY"] = dummydisp.new_display_var
+import pyautogui
 
 DEBUG = False
 use_libimagequant = False
@@ -39,6 +47,7 @@ class FrameGrabber(object):
             graboid = Process(target=self.framegrabber_process, args=(child_conn, shm_a.name, g, self._x11_display_num))
             graboid.start()
             self._graboids.append((parent_conn, shm_a, graboid))
+
 
     def framegrabber_process(self, conn, shm_name, g, display_name):
         if DEBUG: print(f'Graboid {g} started!')
@@ -113,3 +122,18 @@ class FrameGrabber(object):
 
     def get_display_num(self):
         return self._x11_display_num
+
+    # Sends basic keypresses to the x-session. Horribly slow, don't know why...
+    # TODO: Make faster!
+    def send_key(self, key):
+        pyautogui._pyautogui_x11._display = display.Display(self._x11_display_num)
+        pyautogui.press(chr(key))
+
+    # Support some special keys, but very far from all. Still slow...
+    # TODO: Support more keys and qualifiers, make faster!
+    def send_raw_key(self, key, qualifier):
+        keysyms = {0x4c: 'up', 0x4d: 'down', 0x4e: 'right', 0x4f: 'left'}
+        keystring = keysyms.get(key)
+        if keystring:
+            pyautogui._pyautogui_x11._display = display.Display(self._x11_display_num)
+            pyautogui.press(keystring)

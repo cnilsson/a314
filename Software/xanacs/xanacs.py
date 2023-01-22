@@ -29,6 +29,20 @@ MSG_DATA                = 11
 MSG_EOS                 = 12
 MSG_RESET               = 13
 
+# Use the highest bit in a data message signalling that
+# the message is an event and not a frame request
+EVENT_FLAG              = (1 << 7)
+EVENT_MOUSE_MOVE        =        0
+EVENT_MOUSE_BUTTONS     =        1
+EVENT_MOUSE_LEFT_DOWN   =        2
+EVENT_MOUSE_LEFT_UP     =        3
+EVENT_MOUSE_RIGHT_DOWN  =        4
+EVENT_MOUSE_RIGHT_UP    =        5
+EVENT_MOUSE_MIDDLE_DOWN =        6
+EVENT_MOUSE_MIDDLE_UP   =        7
+EVENT_RAWKEY            =        8
+EVENT_VANILLAKEY        =        9
+
 def wait_for_msg():
     header = b''
     while len(header) < 9:
@@ -103,9 +117,11 @@ class VideoPlayerSession(object):
 
     def process_msg_data(self, data):
         if not self.received_bpl_ptrs:
+            # Startup begins with addresses for the two chip mem areas used for the Amiga screen
             self.addresses = struct.unpack('>II', data)
             self.received_bpl_ptrs = True
         elif not self.received_cmd:
+            # After that, the Linux application/script/whatever is transferred
             if data[0] > 0:
                 print('Received {:d} sized packet with {:d} bytes of command data'.format(len(data), data[0]))
                 self.cmdbuffer.extend(data[1:data[0]+1])
@@ -120,12 +136,17 @@ class VideoPlayerSession(object):
                 print(f'shellcmd: {shellcmd}')
                 subprocess.Popen(shlex.split(shellcmd))
         else:
-            self.next_bpl = data[0]
-            if self.bpl_data is None:
-                send_data(self.stream_id, struct.pack('>H', 0))
+            if data[0] & EVENT_FLAG:
+                # Message contains an input event
+                self.process_input_event(data[1], data[2:])
             else:
-                address = self.addresses[self.next_bpl]
-                enqueue_write_mem_req(self.stream_id, address, self.bpl_data)
+                # All other messages are requests for a new frame
+                self.next_bpl = data[0]
+                if self.bpl_data is None:
+                    send_data(self.stream_id, struct.pack('>H', 0))
+                else:
+                    address = self.addresses[self.next_bpl]
+                    enqueue_write_mem_req(self.stream_id, address, self.bpl_data)
 
     def process_write_mem_res(self, data):
         send_data(self.stream_id, struct.pack('>H', 1) + self.pal)
@@ -135,6 +156,27 @@ class VideoPlayerSession(object):
         if self.reset_after and self.reset_after < time.time():
             send_reset(self.stream_id)
             self.close()
+
+    def process_input_event(self, event, event_data):
+        if event == EVENT_MOUSE_MOVE:
+            mouseX, mouseY = struct.unpack('>hh', event_data)
+            # event_queue.put(struct.pack('=Bhh', awslib.AWS_CLIENT_EVENT_MOUSE_MOVE, mouseX, mouseY));
+            print('Mouse move event: ({:3d} {:3d})'.format(mouseX, mouseY))
+        elif event == EVENT_MOUSE_BUTTONS:
+            mouseX, mouseY, action = struct.unpack('>hhB', event_data)
+            print('Mouse action event: ({:3d} {:3d}   {:d})'.format(mouseX, mouseY, action))
+            # event_queue.put(struct.pack('=Bhh', awslib.AWS_CLIENT_EVENT_MOUSE_MOVE, mouseX, mouseY));
+            # event_queue.put(struct.pack('=B', action));
+        elif event == EVENT_RAWKEY:
+            code, qualifier = struct.unpack('>HH', event_data)
+            print('Keyboard raw event: (0x{:04x} 0x{:04x})'.format(code, qualifier))
+            self.grabber.send_raw_key(code, qualifier)
+            # event_queue.put(struct.pack('=BHH', awslib.AWS_CLIENT_EVENT_RAWKEY, code, qualifier));
+        elif event == EVENT_VANILLAKEY:
+            code = struct.unpack('>H', event_data)[0]
+            print('Keyboard vanilla event: (0x{:04x})'.format(code))
+            self.grabber.send_key(code)
+            # event_queue.put(struct.pack('=BHH', awslib.AWS_CLIENT_EVENT_RAWKEY, code, qualifier));
 
     def fileno(self):
         return self.fd
