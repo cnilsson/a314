@@ -248,7 +248,6 @@ static void handle_intui_message(struct IntuiMessage *im)
 	switch (class)
 	{
 		case MOUSEBUTTONS:
-			// wait_a314_write_complete();
 			awbuf[0] = EVENT_FLAG;
 			awbuf[1] = EVENT_MOUSE_BUTTONS;
 			*(WORD *)&awbuf[2] = im->MouseX;
@@ -265,7 +264,6 @@ static void handle_intui_message(struct IntuiMessage *im)
 			start_a314_write(7);
 			break;
 		case MOUSEMOVE:
-			// wait_a314_write_complete();
 			awbuf[0] = EVENT_FLAG;
 			awbuf[1] = EVENT_MOUSE_MOVE;
 			*(WORD *)&awbuf[2] = im->MouseX;
@@ -273,7 +271,6 @@ static void handle_intui_message(struct IntuiMessage *im)
 			start_a314_write(6);
 			break;
 		case RAWKEY:
-			// wait_a314_write_complete();
 			awbuf[0] = EVENT_FLAG;
 			awbuf[1] = EVENT_RAWKEY;
 			*(UWORD *)&awbuf[2] = im->Code;
@@ -281,11 +278,23 @@ static void handle_intui_message(struct IntuiMessage *im)
 			start_a314_write(6);
 			break;
 		case VANILLAKEY:
-			// wait_a314_write_complete();
+			// Check for RAmiga-Q
+			if (im->Code == 'q' && im->Qualifier == 0x8080)
+			{
+				close_after_next_frame_response = TRUE;
+
+				if (!waiting_for_frame_response)
+				{
+					start_a314_reset();
+					stream_closed = TRUE;
+				}
+				break;
+			}
 			awbuf[0] = EVENT_FLAG;
 			awbuf[1] = EVENT_VANILLAKEY;
 			*(UWORD *)&awbuf[2] = im->Code;
-			start_a314_write(4);
+			*(UWORD *)&awbuf[4] = im->Qualifier;
+			start_a314_write(6);
 			break;
 		default:
 			break;
@@ -473,11 +482,9 @@ int main(int argc, char **argv)
 
 	AddIntServer(INTB_VERTB, &vblank_interrupt);
 
-	printf("Press ctrl-c to exit...\n");
-
 	while (TRUE)
 	{
-		ULONG signal = Wait(vblanksig | portsig | SIGBREAKF_CTRL_C);
+		ULONG signal = Wait(vblanksig | portsig );
 		if (signal & vblanksig)
 		{
 			handle_vblank_signal();
@@ -496,17 +503,6 @@ int main(int argc, char **argv)
 					handle_a314_reset_completed();
 				else
 					handle_intui_message((struct IntuiMessage *)msg);
-			}
-		}
-
-		if (signal & SIGBREAKF_CTRL_C)
-		{
-			close_after_next_frame_response = TRUE;
-
-			if (!waiting_for_frame_response)
-			{
-				start_a314_reset();
-				stream_closed = TRUE;
 			}
 		}
 
