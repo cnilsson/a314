@@ -4,6 +4,7 @@
 # Copyright (c) 2022 Christian Nilsson
 
 import os
+import time
 from multiprocessing import Process, Pipe, shared_memory
 
 from PIL import Image, ImageOps
@@ -41,7 +42,7 @@ class FrameGrabber(object):
 
         self._num_graboids = 4
         self._graboids = []
-        for g in range(0, self._num_graboids):
+        for g in range(self._num_graboids):
             shm_a = shared_memory.SharedMemory(create=True, size=64+self._w*self._h*5//8)
             parent_conn, child_conn = Pipe()
             graboid = Process(target=self.framegrabber_process, args=(child_conn, shm_a.name, g, self._x11_display_num))
@@ -57,11 +58,13 @@ class FrameGrabber(object):
         while frame_num != None:
             if DEBUG: print(f'Graboid {g} start #{frame_num}')
             image_data = root.get_image(0, 0, self._w, self._h, X.ZPixmap, 0xffffffff)
+            amiga_palette = bytearray(64)
+
             if use_libimagequant == True:
                 # This looks sooo much better, but is equally slower...
                 quantized_image, quantized_palette = imagequant.quantize_raw_rgba_bytes(image_data.data, self._w, self._h, dithering_level=1.0, max_colors=32)
 
-                amiga_palette = bytearray(64)
+                # Generate Amiga palette
                 for c in range(0, 32):
                     amiga_palette[2*c] = quantized_palette[4*c+2] >> 4
                     amiga_palette[2*c+1] = (quantized_palette[4*c+1] & 0xf0) | (quantized_palette[4*c] >> 4)
@@ -77,7 +80,7 @@ class FrameGrabber(object):
                 quantized_palette = temp_image.getpalette('RGB')
                 quantized_image = temp_image.tobytes()
 
-                amiga_palette = bytearray(64)
+                # Generate Amiga palette
                 for c in range(0, 32):
                     amiga_palette[2*c] = quantized_palette[3*c] >> 4
                     amiga_palette[2*c+1] = (quantized_palette[3*c+1] & 0xf0) | (quantized_palette[3*c+2] >> 4)
@@ -91,6 +94,8 @@ class FrameGrabber(object):
 
             if DEBUG: print(f'Graboid {g} sent #{frame_num}')
             frame_num = conn.recv()
+        shm_output.close()
+        conn.close()
 
     @staticmethod
     def c2p(raw, width, height, depth):
@@ -120,14 +125,32 @@ class FrameGrabber(object):
 
         return amiga_palette, amiga_image
 
+    def close(self):
+        # There is still some shmem stuff that won't close, don't know why...
+        for g in self._graboids:
+            g[0].send(None)
+            g[0].close()
+        time.sleep(1)
+        for g in self._graboids:
+            g[2].join()
+            # g[1].close()
+            g[1].unlink()
+        self._display.stop()
+
     def get_display_num(self):
         return self._x11_display_num
 
     # Sends basic keypresses to the x-session. Horribly slow, don't know why...
     # TODO: Make faster!
-    def send_key(self, key):
+    def send_key(self, key, qualifier):
+        ctrl = (qualifier & 0x08) != 0
+        altL = (qualifier & 0x10) != 0
+        altR = (qualifier & 0x20) != 0
+
         pyautogui._pyautogui_x11._display = display.Display(self._x11_display_num)
+        if ctrl: pyautogui.keyDown('ctrl'); key |= 0x60
         pyautogui.press(chr(key))
+        if ctrl: pyautogui.keyUp('ctrl')
 
     # Support some special keys, but very far from all. Still slow...
     # TODO: Support more keys and qualifiers, make faster!

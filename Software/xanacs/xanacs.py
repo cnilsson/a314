@@ -100,6 +100,7 @@ class VideoPlayerSession(object):
         self.reset_after = None
         self.received_bpl_ptrs = False
         self.received_cmd = False
+        self.linux_process = None
         self.cmdbuffer = bytearray()
 
         self.grabber = FrameGrabber()
@@ -109,6 +110,17 @@ class VideoPlayerSession(object):
         self.read_next_frame()
 
     def close(self):
+        if self.linux_process:
+            print('Kill process...')
+            self.linux_process.terminate()
+            try:
+                self.linux_process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                print('Process didn\'t stop from SIGTERM, sending SIGKILL')
+                self.linux_process.kill()
+                self.linux_process.communicate()
+        print('process killed')
+        self.grabber.close()
         del sessions[self.stream_id]
 
     def read_next_frame(self):
@@ -134,7 +146,7 @@ class VideoPlayerSession(object):
                 display_num = self.grabber.get_display_num()
                 shellcmd = f'/tmp/314tmp' + f' DISPLAY={display_num}'
                 print(f'shellcmd: {shellcmd}')
-                subprocess.Popen(shlex.split(shellcmd))
+                self.linux_process = subprocess.Popen(shlex.split(shellcmd))
         else:
             if data[0] & EVENT_FLAG:
                 # Message contains an input event
@@ -160,23 +172,18 @@ class VideoPlayerSession(object):
     def process_input_event(self, event, event_data):
         if event == EVENT_MOUSE_MOVE:
             mouseX, mouseY = struct.unpack('>hh', event_data)
-            # event_queue.put(struct.pack('=Bhh', awslib.AWS_CLIENT_EVENT_MOUSE_MOVE, mouseX, mouseY));
             print('Mouse move event: ({:3d} {:3d})'.format(mouseX, mouseY))
         elif event == EVENT_MOUSE_BUTTONS:
             mouseX, mouseY, action = struct.unpack('>hhB', event_data)
             print('Mouse action event: ({:3d} {:3d}   {:d})'.format(mouseX, mouseY, action))
-            # event_queue.put(struct.pack('=Bhh', awslib.AWS_CLIENT_EVENT_MOUSE_MOVE, mouseX, mouseY));
-            # event_queue.put(struct.pack('=B', action));
         elif event == EVENT_RAWKEY:
             code, qualifier = struct.unpack('>HH', event_data)
             print('Keyboard raw event: (0x{:04x} 0x{:04x})'.format(code, qualifier))
             self.grabber.send_raw_key(code, qualifier)
-            # event_queue.put(struct.pack('=BHH', awslib.AWS_CLIENT_EVENT_RAWKEY, code, qualifier));
         elif event == EVENT_VANILLAKEY:
-            code = struct.unpack('>H', event_data)[0]
-            print('Keyboard vanilla event: (0x{:04x})'.format(code))
-            self.grabber.send_key(code)
-            # event_queue.put(struct.pack('=BHH', awslib.AWS_CLIENT_EVENT_RAWKEY, code, qualifier));
+            code, qualifier = struct.unpack('>HH', event_data)
+            print('Keyboard vanilla event: (0x{:04x} 0x{:04x})'.format(code, qualifier))
+            self.grabber.send_key(code, qualifier)
 
     def fileno(self):
         return self.fd
