@@ -1,0 +1,3 @@
+#!/bin/sh
+#/usr/bin/cvlc --no-audio --zoom 0.1 /home/pi/b.ogg
+/usr/bin/glxgears
