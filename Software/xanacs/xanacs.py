@@ -12,6 +12,7 @@ import sys
 import time
 import subprocess
 import shlex
+import tempfile
 
 from framegrabber import FrameGrabber
 
@@ -139,12 +140,13 @@ class VideoPlayerSession(object):
                 self.cmdbuffer.extend(data[1:data[0]+1])
             else:
                 print('All data received, total: {:d} bytes'.format(len(self.cmdbuffer)))
-                with open('/tmp/314tmp', 'wb') as f:
+                tmpfile = '/tmp/' + next(tempfile._get_candidate_names())
+                with open(tmpfile, 'wb') as f:
                     f.write(self.cmdbuffer)
-                os.chmod('/tmp/314tmp', 0o700)
+                os.chmod(tmpfile, 0o700)
                 self.received_cmd = True
                 display_num = self.grabber.get_display_num()
-                shellcmd = f'/tmp/314tmp' + f' DISPLAY={display_num}'
+                shellcmd = tmpfile + f' DISPLAY={display_num}'
                 print(f'shellcmd: {shellcmd}')
                 self.linux_process = subprocess.Popen(shlex.split(shellcmd))
         else:
