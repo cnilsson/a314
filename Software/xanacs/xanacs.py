@@ -173,9 +173,11 @@ class VideoPlayerSession(object):
         if event == EVENT_MOUSE_MOVE:
             mouseX, mouseY = struct.unpack('>hh', event_data)
             print('Mouse move event: ({:3d} {:3d})'.format(mouseX, mouseY))
+            self.grabber.send_mouse(mouseX, mouseY, 0)
         elif event == EVENT_MOUSE_BUTTONS:
             mouseX, mouseY, action = struct.unpack('>hhB', event_data)
             print('Mouse action event: ({:3d} {:3d}   {:d})'.format(mouseX, mouseY, action))
+            self.grabber.send_mouse(mouseX, mouseY, action)
         elif event == EVENT_RAWKEY:
             code, qualifier = struct.unpack('>HH', event_data)
             print('Keyboard raw event: (0x{:04x} 0x{:04x})'.format(code, qualifier))

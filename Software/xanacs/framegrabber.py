@@ -160,3 +160,11 @@ class FrameGrabber(object):
         if keystring:
             pyautogui._pyautogui_x11._display = display.Display(self._x11_display_num)
             pyautogui.press(keystring)
+
+    def send_mouse(self, mouseX, mouseY, button):
+        if button == 2:
+            pyautogui._pyautogui_x11._display = display.Display(self._x11_display_num)
+            pyautogui.mouseDown(button='left', x=mouseX, y=mouseY)
+        if button == 3:
+            pyautogui._pyautogui_x11._display = display.Display(self._x11_display_num)
+            pyautogui.mouseUp(button='left', x=mouseX, y=mouseY)
