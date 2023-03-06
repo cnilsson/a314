@@ -62,6 +62,8 @@ endif
 	$(foreach filename, $(A314_SERVICE_CONFIGS), $(call modinstall, $(filename), ${DESTDIR}/etc/opt/a314/);)
 	# pip3 install pyudev
 	# pip3 install python-pytun
+	install -d ${DESTDIR}/etc/network/interfaces.d
 	install ethernet/pi-config/tap0 ${DESTDIR}/etc/network/interfaces.d
+	install -d ${DESTDIR}/lib/systemd/system
 	$(call modinstall, a314d/a314d.service, ${DESTDIR}/lib/systemd/system)
 	@echo "Installation completed!"
