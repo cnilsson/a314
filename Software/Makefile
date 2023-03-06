@@ -53,15 +53,15 @@ ifneq ($(shell id -u), 0)
 	@exit 1
 endif
 	@echo "Installing A314 files..."
-	install -d ${SUDO_HOME}/a314shared -o ${SUDO_USER} -g ${SUDO_GROUP}
-	install -d /opt/a314
-	install -d /etc/opt/a314
-	install ${A314_SERVICES} /opt/a314
-	install ${A314_PI_BINARIES} /opt/a314
-	install a314d/a314d.conf /etc/opt/a314
-	$(foreach filename, $(A314_SERVICE_CONFIGS), $(call modinstall, $(filename), /etc/opt/a314/);)
-	pip3 install pyudev
-	pip3 install python-pytun
-	install ethernet/pi-config/tap0 /etc/network/interfaces.d
-	$(call modinstall, a314d/a314d.service, /lib/systemd/system)
+	install -d ${DESTDIR}/${SUDO_HOME}/a314shared -o ${SUDO_USER} -g ${SUDO_GROUP}
+	install -d ${DESTDIR}/opt/a314
+	install -d ${DESTDIR}/etc/opt/a314
+	install ${A314_SERVICES} ${DESTDIR}/opt/a314
+	install ${A314_PI_BINARIES} ${DESTDIR}/opt/a314
+	install a314d/a314d.conf ${DESTDIR}/etc/opt/a314
+	$(foreach filename, $(A314_SERVICE_CONFIGS), $(call modinstall, $(filename), ${DESTDIR}/etc/opt/a314/);)
+	# pip3 install pyudev
+	# pip3 install python-pytun
+	install ethernet/pi-config/tap0 ${DESTDIR}/etc/network/interfaces.d
+	$(call modinstall, a314d/a314d.service, ${DESTDIR}/lib/systemd/system)
 	@echo "Installation completed!"
