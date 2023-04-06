@@ -4,17 +4,30 @@ ifndef VERBOSE
 .SILENT:
 endif
 
-CPP=g++
-CC=gcc
+CXX?=g++
+CC?=gcc
 BIN=bin_pi
 
-# Check that MODEL is set, unless target is help, clean or install_depends
-ifeq (, $(filter $(MAKECMDGOALS), help clean install_depends))
+# Check that MODEL is set, unless target is help, clean, install_depends or all-dist
+ifeq (, $(filter $(MAKECMDGOALS), help clean install_depends all-dist))
     ifneq (, $(filter $(MODEL), TD CP))
         A314_MODEL=MODEL_${MODEL}
     else
         $(error Requires MODEL=TD or MODEL=CP, see "make help")
     endif
+endif
+
+# For cross compile
+ifeq ($(TARGET), RPI32)
+CC                   = arm-linux-gnueabihf-gcc
+CXX                  = arm-linux-gnueabihf-g++
+SYS_BITS             = 32
+endif
+
+ifeq ($(TARGET), RPI64)
+CC                   = aarch64-linux-gnu-gcc
+CXX                  = aarch64-linux-gnu-g++
+SYS_BITS             = 64
 endif
 
 A314_SERVICES        = a314d/a314d.py \
@@ -48,7 +61,7 @@ endif
 
 # Generate a name for the installer
 GIT_TAG=${shell git describe --tags}
-SYS_BITS=${shell getconf LONG_BIT}
+SYS_BITS?=${shell getconf LONG_BIT}
 INSTALLER_NAME=a314install_${MODEL}_${SYS_BITS}_${GIT_TAG}.run
 
 # Figure out the primary group and home directory of the user who used sudo
@@ -69,7 +82,7 @@ help:
 	echo " Use MODEL=TD for A500 and A600 trapdoor models, or MODEL=CP for clockport model"
 	echo " Example: > make all MODEL=CP"
 	echo
-	echo " Usage: make [target] MODEL=<TD|CP>"
+	echo " Usage: make [target] [TARGET=<RPI32|RPI64>] MODEL=<TD|CP>"
 	echo
 	echo " Targets:"
 	echo " --------"
@@ -82,8 +95,17 @@ help:
 	echo " --------------"
 	echo " install_depends    - Install build dependencies (this will take some time and should only be needed once)"
 	echo " dist               - Build a self-extracting installer for distribution"
+	echo " all-dist           - Build installers for all MODELs and for all TARGETs"
 	echo
-
+	echo " Notes on cross compilation"
+	echo " --------------------------"
+	echo " By including TARGET on the command line or in the environment the binaries"
+	echo " can be built on for example an x86 desktop machine for installation on a"
+	echo " Raspberry Pi. Using TARGET=RPI32 or RPI64 for 32 or 64 bit Raspberry Pi OS"
+	echo " installations repectively."
+	echo " This requires that you have the correct toolchain(s) installed in your path."
+	echo " Cross compilation has been tested using the abhiTronix's Raspberry Pi Toolchains"
+	echo " which can be found at: https://github.com/abhiTronix/raspberry-pi-cross-compilers"
 
 all: bin_dir ${A314_PI_BINARIES} ${A314_PI_OVERLAYS}
 
@@ -94,7 +116,7 @@ bin_dir:
 
 ${BIN}/a314d: a314d/a314d.cc
 	echo "Building $@"
-	${CPP} -D${A314_MODEL}=1 a314d/a314d.cc -O3 -o ${BIN}/a314d
+	${CXX} -D${A314_MODEL}=1 a314d/a314d.cc -O3 -o ${BIN}/a314d
 
 
 ${BIN}/start_gpclk: a314d/start_gpclk.c
@@ -252,3 +274,9 @@ endif
 
 dist: clean all _install_script
 	fakeroot -- ${MAKE} _fakeroot_install
+
+all-dist:
+	$(MAKE) dist MODEL=TD TARGET=RPI32
+#	$(MAKE) dist MODEL=CP TARGET=RPI32
+	$(MAKE) dist MODEL=TD TARGET=RPI64
+#	$(MAKE) dist MODEL=CP TARGET=RPI64
