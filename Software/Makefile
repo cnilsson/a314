@@ -4,9 +4,13 @@ ifndef VERBOSE
 .SILENT:
 endif
 
-CXX?=g++
-CC?=gcc
-BIN=bin_pi
+CXX          ?= g++
+CC           ?= gcc
+LD           ?= ld
+CFLAGS       ?= -I/opt/vc/include
+LDFLAGS      ?= -L/opt/vc/lib
+BIN           = bin_pi
+CROSS_ROOT   ?= /opt
 
 # Check that MODEL is set, unless target is help, clean, install_depends or all-dist
 ifeq (, $(filter $(MAKECMDGOALS), help clean install_depends all-dist))
@@ -21,12 +25,18 @@ endif
 ifeq ($(TARGET), RPI32)
 CC                   = arm-linux-gnueabihf-gcc
 CXX                  = arm-linux-gnueabihf-g++
+CFLAGS               = -I$(CROSS_ROOT)/vc/include
+LDFLAGS              = -L$(CROSS_ROOT)/vc/lib \
+                       -Wl,-rpath-link=$(CROSS_ROOT)/vc/lib
 SYS_BITS             = 32
 endif
 
 ifeq ($(TARGET), RPI64)
 CC                   = aarch64-linux-gnu-gcc
 CXX                  = aarch64-linux-gnu-g++
+CFLAGS               = -I$(CROSS_ROOT)/vc64/include
+LDFLAGS              = -L$(CROSS_ROOT)/vc64/lib \
+                       -Wl,-rpath-link=$(CROSS_ROOT)/vc64/lib
 SYS_BITS             = 64
 endif
 
@@ -116,12 +126,12 @@ bin_dir:
 
 ${BIN}/a314d: a314d/a314d.cc
 	echo "Building $@"
-	${CXX} -D${A314_MODEL}=1 a314d/a314d.cc -O3 -o ${BIN}/a314d
+	${CXX} -D${A314_MODEL}=1 a314d/a314d.cc -O3 $(CFLAGS) $(LDFLAGS) -o ${BIN}/a314d
 
 
 ${BIN}/start_gpclk: a314d/start_gpclk.c
 	echo "Building $@"
-	${CC} a314d/start_gpclk.c -I/opt/vc/include -L/opt/vc/lib -lbcm_host -o ${BIN}/start_gpclk
+	${CC} a314d/start_gpclk.c $(CFLAGS) $(LDFLAGS) -lbcm_host -o ${BIN}/start_gpclk
 
 
 ${BIN}/spi-a314.dtbo: a314d/spi-a314-overlay.dts
@@ -277,6 +287,6 @@ dist: clean all _install_script
 
 all-dist:
 	$(MAKE) dist MODEL=TD TARGET=RPI32
-#	$(MAKE) dist MODEL=CP TARGET=RPI32
+	$(MAKE) dist MODEL=CP TARGET=RPI32
 	$(MAKE) dist MODEL=TD TARGET=RPI64
-#	$(MAKE) dist MODEL=CP TARGET=RPI64
+	$(MAKE) dist MODEL=CP TARGET=RPI64
