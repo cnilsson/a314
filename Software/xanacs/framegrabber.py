@@ -69,7 +69,10 @@ class FrameGrabber(object):
                     amiga_palette[2*c] = quantized_palette[4*c+2] >> 4
                     amiga_palette[2*c+1] = (quantized_palette[4*c+1] & 0xf0) | (quantized_palette[4*c] >> 4)
             else:
-                original_image = Image.frombuffer("RGB", (self._w, self._h), image_data.data, "raw", "BGRX")
+                temp_data = image_data.data
+                if type(temp_data) is str:
+                    temp_data = temp_data.encode('latin-1')
+                original_image = Image.frombuffer("RGB", (self._w, self._h), temp_data, "raw", "BGRX")
 
                 # Keep top 4 bits of colour values. This is not really needed, but it seems
                 # to lighten the CPU load enough for 25 fps playback on an RPi Zero 2

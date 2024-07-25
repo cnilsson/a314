@@ -9,6 +9,7 @@ clean:
 	rm -f ${BIN}/a314d-fe
 	rm -f ${BIN}/spi-a314.dtbo
 	rm -f ${BIN}/start_gpclk
+	rm -f ${BIN}/libcc2p.so
 	rmdir ${BIN}
 
 ${BIN}/a314d-td: a314d/a314d.cc

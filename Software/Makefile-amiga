@@ -61,4 +61,4 @@ ${BIN}/C/DiagA314td: diag/diag.c
 	${VC} diag/diag.c -o ${BIN}/C/DiagA314td
 
 ${BIN}/C/xanacs: a314device/a314.h a314device/proto_a314.h xanacs/xanacs.c xanacs/vblank_server.asm
-	${VC} xanacs/xanacs.c xanacs/vblank_server.asm -lamiga -o ${BIN}/xanacs
+	${VC} xanacs/xanacs.c xanacs/vblank_server.asm -lamiga -o ${BIN}/C/xanacs
